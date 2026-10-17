@@ -1,0 +1,82 @@
+.card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    'icon label'
+    'value value'
+    'caption caption';
+  align-items: center;
+  column-gap: var(--sp-3);
+  row-gap: var(--sp-2);
+  padding: var(--sp-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition);
+}
+
+.card:hover {
+  border-color: var(--blue-600);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.iconTile {
+  grid-area: icon;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+}
+
+.label {
+  grid-area: label;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.value {
+  grid-area: value;
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.caption {
+  grid-area: caption;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.total .iconTile {
+  background: var(--teal-50);
+  color: var(--teal-700);
+}
+
+.active .iconTile {
+  background: var(--status-active-bg);
+  color: var(--status-active-text);
+}
+
+.inactive .iconTile {
+  background: var(--status-inactive-bg);
+  color: var(--status-inactive-text);
+}
+
+.maintenance .iconTile {
+  background: var(--status-maintenance-bg);
+  color: var(--status-maintenance-text);
+}
+
+@media (max-width: 639px) {
+  .card {
+    padding: var(--sp-4);
+  }
+}

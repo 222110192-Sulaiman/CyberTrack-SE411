@@ -1,0 +1,93 @@
+.shell {
+  min-height: 100vh;
+}
+
+.skipLink {
+  position: fixed;
+  top: var(--sp-2);
+  left: var(--sp-2);
+  z-index: 400;
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--radius-sm);
+  background: var(--blue-600);
+  color: var(--white);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.skipLink:focus {
+  transform: none;
+}
+
+.topBar {
+  display: none;
+}
+
+.main {
+  margin-left: var(--sidebar-width);
+  min-height: 100vh;
+  padding: var(--page-pad);
+}
+
+.main:focus {
+  outline: none;
+}
+
+.content {
+  max-width: var(--content-max);
+  margin: 0 auto;
+}
+
+.backdrop {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .topBar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    height: var(--topbar-height);
+    padding: 0 var(--sp-2);
+    background: var(--navy-900);
+  }
+
+  .menuButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--white);
+    cursor: pointer;
+  }
+
+  .menuButton:hover {
+    background: var(--navy-800);
+  }
+
+  .menuButton:focus-visible {
+    outline-color: var(--teal-400);
+    box-shadow: none;
+  }
+
+  .main {
+    margin-left: 0;
+    min-height: calc(100vh - var(--topbar-height));
+  }
+
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: block;
+    background: rgba(11, 31, 58, 0.55);
+  }
+}

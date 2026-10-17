@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files and local overrides
+.env
+.env.*
+*.local
+
+# Course materials kept locally, not published (e.g. the assignment description)
+/*.docx
+/*.pdf
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Office lock files
+~$*

@@ -1,0 +1,50 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.active {
+  color: var(--status-active-text);
+  background: var(--status-active-bg);
+}
+.active .dot {
+  background: var(--status-active-dot);
+}
+
+.inactive {
+  color: var(--status-inactive-text);
+  background: var(--status-inactive-bg);
+}
+.inactive .dot {
+  background: var(--status-inactive-dot);
+}
+
+.maintenance {
+  color: var(--status-maintenance-text);
+  background: var(--status-maintenance-bg);
+}
+.maintenance .dot {
+  background: var(--status-maintenance-dot);
+}
+
+.decommissioned {
+  color: var(--status-decommissioned-text);
+  background: var(--status-decommissioned-bg);
+}
+.decommissioned .dot {
+  background: var(--status-decommissioned-dot);
+}

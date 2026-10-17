@@ -1,0 +1,9 @@
+.chip {
+  display: inline-block;
+  margin-right: var(--sp-2);
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--teal-50);
+  color: var(--teal-700);
+  font-weight: 600;
+}

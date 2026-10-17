@@ -1,0 +1,46 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--sp-5) var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: var(--sp-3);
+  border-radius: 50%;
+  background: var(--navy-900);
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--teal-400);
+  color: var(--white);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.name {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.details {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-sm);
+}
+
+.details dt {
+  color: var(--text-muted);
+}
+
+.details dd {
+  margin: 0;
+  font-weight: 500;
+}
