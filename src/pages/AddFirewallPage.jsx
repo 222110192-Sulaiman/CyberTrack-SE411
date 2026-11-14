@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useFirewalls } from '../hooks/useFirewalls';
+import { useFirewallService } from '../hooks/useFirewallService';
 import { useToast } from '../hooks/useToast';
 import { EMPTY_FIREWALL } from '../data/constants';
 import { validateFirewall } from '../utils/validation';
@@ -8,13 +8,14 @@ import Card from '../components/ui/Card';
 import FirewallForm from '../components/firewalls/FirewallForm';
 
 export default function AddFirewallPage() {
-  const { firewalls, addFirewall } = useFirewalls();
+  const service = useFirewallService();
   const { notify } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
   async function handleSubmit(values) {
-    const created = await addFirewall(values);
+    // Format rules are checked in the browser; the server also checks that the name and IP are unique.
+    const created = await service.create(values);
     notify({ type: 'success', message: `Firewall "${created.name}" added as ${created.id}` });
     navigate('/firewalls', { state: { highlightId: created.id } });
   }
@@ -32,7 +33,7 @@ export default function AddFirewallPage() {
         <FirewallForm
           mode="add"
           initialValues={EMPTY_FIREWALL}
-          validate={(values) => validateFirewall(values, firewalls)}
+          validate={(values) => validateFirewall(values)}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
         />

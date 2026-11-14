@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, renderHook, screen } from '@testing-library/react';
 import ToastProvider from './ToastProvider';
 import { useToast } from '../hooks/useToast';
-import { useFirewalls } from '../hooks/useFirewalls';
+import { useFirewallService } from '../hooks/useFirewallService';
 
 function Trigger({ type = 'success', message = 'Saved' }) {
   const { notify } = useToast();
@@ -56,7 +56,9 @@ describe('context hooks', () => {
   it('throw a clear error when used outside their provider', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(() => renderHook(() => useToast())).toThrow('useToast must be used inside <ToastProvider>');
-    expect(() => renderHook(() => useFirewalls())).toThrow('useFirewalls must be used inside <FirewallProvider>');
+    expect(() => renderHook(() => useFirewallService())).toThrow(
+      'useFirewallService must be used inside <FirewallProvider>',
+    );
     vi.restoreAllMocks();
   });
 });

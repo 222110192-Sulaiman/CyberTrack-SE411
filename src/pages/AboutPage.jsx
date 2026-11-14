@@ -5,7 +5,7 @@ import Card from '../components/ui/Card';
 import TeamMemberCard from '../components/ui/TeamMemberCard';
 import styles from './AboutPage.module.css';
 
-const TAGS = ['Firewall-focused', 'React.js', 'In-memory data · Part 1'];
+const TAGS = ['Firewall-focused', 'React.js', 'Spring Boot REST API'];
 
 export default function AboutPage() {
   return (

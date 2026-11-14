@@ -53,8 +53,8 @@ export default function Sidebar({ id, open, onNavigate, ref }) {
         </ul>
       </nav>
       <div className={styles.footer}>
-        <span>SE411 · Project Part 1</span>
-        <span>v1.0.0</span>
+        <span>SE411 · Project Part 2</span>
+        <span>v2.0.0</span>
       </div>
     </aside>
   );

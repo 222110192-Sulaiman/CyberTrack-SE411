@@ -1,7 +1,13 @@
-import { describe, expect, it } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { screen, waitFor, within } from '@testing-library/react';
 import { renderApp } from './test/renderApp';
 import { teamMembers } from './data/team';
+
+/** Makes one service method fail on its first call (as if the server were down), then work again. */
+function failOnce(service, method) {
+  const real = service[method].bind(service);
+  service[method] = vi.fn(real).mockRejectedValueOnce(new Error('The CyberTrack server could not be reached'));
+}
 
 function bodyRows() {
   return within(screen.getByRole('table')).getAllByRole('row').slice(1);
@@ -202,7 +208,7 @@ describe('Firewall Inventory', () => {
       '/firewalls/FW-0001/edit',
     );
     expect(within(row).getByRole('button', { name: 'Delete HQ-EDGE-FW-01' })).toBeInTheDocument();
-    expect(screen.getByText('Showing 10 of 10')).toBeInTheDocument();
+    expect(screen.getByText('Showing 1–10 of 10')).toBeInTheDocument();
   });
 
   it('shows each of the four statuses as a labelled badge', async () => {
@@ -233,22 +239,22 @@ describe('Firewall Inventory', () => {
     const search = screen.getByRole('searchbox', { name: 'Search firewalls' });
 
     await user.type(search, 'FORTI');
+    expect(await screen.findByText('Showing 1–2 of 2')).toBeInTheDocument();
     expect(bodyRows()).toHaveLength(2);
-    expect(screen.getByText('Showing 2 of 10')).toBeInTheDocument();
 
     await user.clear(search);
     await user.type(search, 'zzzz');
-    expect(screen.getByRole('heading', { name: 'No firewalls match your search' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'No firewalls match your search' })).toBeInTheDocument();
     expect(screen.getByText(/Nothing matches "zzzz"/)).toBeInTheDocument();
 
     // The empty state's text button (the search box also has an icon-only "Clear search" button).
     await user.click(screen.getByText('Clear search', { selector: 'button' }));
-    expect(bodyRows()).toHaveLength(10);
+    await waitFor(() => expect(bodyRows()).toHaveLength(10));
     expect(search).toHaveValue('');
   });
 
   it.each([
-    ['IP address prefix', '172.16', ['BRANCH-DMM-FW', 'BRANCH-KHB-FW']],
+    ['IP address prefix', '172.16', ['BRANCH-KHB-FW', 'BRANCH-DMM-FW']],
     ['location', 'khobar', ['BRANCH-KHB-FW']],
     ['asset ID', 'fw-0007', ['LAB-FW-01']],
     ['manufacturer', 'palo alto', ['DMZ-FW-01']],
@@ -256,15 +262,14 @@ describe('Firewall Inventory', () => {
     const { user } = renderApp('/firewalls');
     await screen.findByRole('table');
     await user.type(screen.getByRole('searchbox', { name: 'Search firewalls' }), query);
-    const names = bodyRows().map((row) => row.cells[1].textContent);
-    expect(names).toEqual(expectedNames);
+    await waitFor(() => expect(bodyRows().map((row) => row.cells[1].textContent)).toEqual(expectedNames));
   });
 
   it('ignores leading and trailing spaces in the search term', async () => {
     const { user } = renderApp('/firewalls');
     await screen.findByRole('table');
     await user.type(screen.getByRole('searchbox', { name: 'Search firewalls' }), '  sophos  ');
-    expect(bodyRows()).toHaveLength(1);
+    await waitFor(() => expect(bodyRows()).toHaveLength(1));
   });
 
   it('focuses the search box with "/" and clears it with Escape', async () => {
@@ -277,10 +282,10 @@ describe('Firewall Inventory', () => {
     expect(search).toHaveValue('');
 
     await user.type(search, 'cisco');
-    expect(bodyRows()).toHaveLength(2);
+    await waitFor(() => expect(bodyRows()).toHaveLength(2));
     await user.keyboard('{Escape}');
     expect(search).toHaveValue('');
-    expect(bodyRows()).toHaveLength(10);
+    await waitFor(() => expect(bodyRows()).toHaveLength(10));
   });
 
   it('deletes a firewall after confirmation', async () => {
@@ -295,9 +300,9 @@ describe('Firewall Inventory', () => {
 
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(await screen.findByText('Showing 1–9 of 9')).toBeInTheDocument();
     expect(rowFor('DMZ-FW-01')).toBeUndefined();
     expect(bodyRows()).toHaveLength(9);
-    expect(screen.getByText('Showing 9 of 9')).toBeInTheDocument();
     expect(await screen.findByText('Firewall "DMZ-FW-01" deleted')).toBeInTheDocument();
     // The trigger button no longer exists, so focus moves to the main region.
     expect(screen.getByRole('main')).toHaveFocus();
@@ -344,8 +349,8 @@ describe('Firewall Inventory', () => {
       await screen.findByText('Firewall "DMZ-FW-01" was not found. It may have already been deleted.'),
     ).toBeInTheDocument();
     expect(screen.queryByText('Firewall "DMZ-FW-01" deleted')).not.toBeInTheDocument();
-    // The stale row is removed so the list matches the store again.
-    expect(rowFor('DMZ-FW-01')).toBeUndefined();
+    // The list is reloaded from the store, so the stale row disappears.
+    await waitFor(() => expect(rowFor('DMZ-FW-01')).toBeUndefined());
     expect(bodyRows()).toHaveLength(9);
   });
 
@@ -385,10 +390,12 @@ describe('Add Firewall', () => {
     await user.click(screen.getByRole('button', { name: 'Save Firewall' }));
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Firewall Inventory' })).toBeInTheDocument();
-    const row = rowFor('NEW-FW-01');
+    // Newest first, so the new firewall is the first row of page 1.
+    expect(await screen.findByText('Showing 1–10 of 11')).toBeInTheDocument();
+    const row = bodyRows()[0];
+    expect(within(row).getByText('NEW-FW-01')).toBeInTheDocument();
     expect(within(row).getByText('FW-0011')).toBeInTheDocument();
     expect(within(row).getByText('Active')).toBeInTheDocument();
-    expect(screen.getByText('Showing 11 of 11')).toBeInTheDocument();
     expect(screen.getByText('Firewall "NEW-FW-01" added as FW-0011')).toBeInTheDocument();
   });
 
@@ -455,17 +462,20 @@ describe('Add Firewall', () => {
     await user.click(screen.getByRole('button', { name: 'Save Firewall' }));
     expect(screen.getByText('Enter a valid IPv4 address (e.g. 192.168.1.1)')).toBeInTheDocument();
 
+    // Uniqueness is checked by the data service (the server), after Save.
     const ip = screen.getByLabelText(/IP Address/);
     await user.clear(ip);
     await user.type(ip, '10.0.0.1');
-    expect(screen.getByText('This IP address is already assigned')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save Firewall' }));
+    expect(await screen.findByText('This IP address is already assigned')).toBeInTheDocument();
+    expect(ip).toHaveFocus();
   });
 
   it('rejects a duplicate firewall name', async () => {
     const { user, service } = renderApp('/firewalls/new');
     await fillRequired(user, { name: 'dmz-fw-01' });
     await user.click(screen.getByRole('button', { name: 'Save Firewall' }));
-    expect(screen.getByText('A firewall with this name already exists')).toBeInTheDocument();
+    expect(await screen.findByText('A firewall with this name already exists')).toBeInTheDocument();
     expect(await service.getAll()).toHaveLength(10);
   });
 
@@ -485,7 +495,7 @@ describe('Edit Firewall', () => {
     await user.click(screen.getByRole('link', { name: 'Edit HQ-EDGE-FW-01' }));
 
     expect(screen.getByRole('heading', { level: 1, name: 'Edit Firewall' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Asset ID')).toHaveValue('FW-0001');
+    expect(await screen.findByLabelText('Asset ID')).toHaveValue('FW-0001');
     expect(screen.getByLabelText('Asset ID')).toHaveAttribute('readonly');
     expect(screen.getByLabelText(/Firewall Name/)).toHaveValue('HQ-EDGE-FW-01');
     expect(screen.getByLabelText(/Manufacturer/)).toHaveValue('Fortinet');
@@ -502,6 +512,7 @@ describe('Edit Firewall', () => {
     // Router navigations run in a transition, so wait for the inventory itself.
     expect(await screen.findByRole('heading', { level: 1, name: 'Firewall Inventory' })).toBeInTheDocument();
     expect(screen.getByText('Firewall "HQ-EDGE-FW-01" updated')).toBeInTheDocument();
+    await screen.findByRole('table');
     expect(within(rowFor('HQ-EDGE-FW-01')).getByText('Maintenance')).toBeInTheDocument();
     expect((await service.getById('FW-0001')).status).toBe('Maintenance');
   });
@@ -526,7 +537,7 @@ describe('Edit Firewall', () => {
     await user.clear(name);
     await user.type(name, 'DMZ-FW-01');
     await user.click(screen.getByRole('button', { name: 'Save Changes' }));
-    expect(screen.getByText('A firewall with this name already exists')).toBeInTheDocument();
+    expect(await screen.findByText('A firewall with this name already exists')).toBeInTheDocument();
   });
 
   it('discards changes on cancel', async () => {
@@ -537,6 +548,7 @@ describe('Edit Firewall', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Firewall Inventory' })).toBeInTheDocument();
+    await screen.findByRole('table');
     expect(within(rowFor('HQ-EDGE-FW-01')).getByText('Riyadh HQ – Server Room A')).toBeInTheDocument();
     expect((await service.getById('FW-0001')).location).toBe('Riyadh HQ – Server Room A');
   });
@@ -555,6 +567,7 @@ describe('Security', () => {
     await fillRequired(user, { location: payload });
     await user.click(screen.getByRole('button', { name: 'Save Firewall' }));
     await screen.findByRole('heading', { level: 1, name: 'Firewall Inventory' });
+    await screen.findByRole('table');
 
     expect(within(rowFor('NEW-FW-01')).getByText(payload)).toBeInTheDocument();
     expect(screen.getByRole('table').querySelector('img')).toBeNull();
@@ -565,5 +578,127 @@ describe('Security', () => {
     await fillRequired(user, { name: '<b>FW</b>' });
     await user.click(screen.getByRole('button', { name: 'Save Firewall' }));
     expect(screen.getByText(/Name may contain only/)).toBeInTheDocument();
+  });
+});
+
+describe('Pagination (Part 2)', () => {
+  it('shows results one page at a time and moves between pages', async () => {
+    const { user } = renderApp('/firewalls?size=5');
+    expect(await screen.findByText('Showing 1–5 of 10')).toBeInTheDocument();
+    expect(bodyRows()).toHaveLength(5);
+    expect(bodyRows()[0].cells[0]).toHaveTextContent('FW-0010');
+    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByText('Showing 6–10 of 10')).toBeInTheDocument();
+    expect(bodyRows()[0].cells[0]).toHaveTextContent('FW-0005');
+    expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: 'Previous' }));
+    expect(await screen.findByText('Showing 1–5 of 10')).toBeInTheDocument();
+  });
+
+  it('changes the number of rows per page', async () => {
+    const { user } = renderApp('/firewalls');
+    expect(await screen.findByText('Showing 1–10 of 10')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Rows per page'), '5');
+    expect(await screen.findByText('Showing 1–5 of 10')).toBeInTheDocument();
+    expect(bodyRows()).toHaveLength(5);
+  });
+
+  it('paginates search results', async () => {
+    const { user } = renderApp('/firewalls?size=5');
+    await screen.findByRole('table');
+    await user.type(screen.getByRole('searchbox', { name: 'Search firewalls' }), 'riyadh');
+    expect(await screen.findByText('Showing 1–5 of 6')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByText('Showing 6–6 of 6')).toBeInTheDocument();
+    expect(bodyRows()).toHaveLength(1);
+  });
+
+  it('goes back a page when the last row of the last page is deleted', async () => {
+    const { user } = renderApp('/firewalls?size=5&page=2');
+    expect(await screen.findByText('Showing 6–10 of 10')).toBeInTheDocument();
+    for (const name of ['BRANCH-KHB-FW', 'BRANCH-DMM-FW', 'DMZ-FW-01', 'HQ-EDGE-FW-02', 'HQ-EDGE-FW-01']) {
+      await deleteViaDialog(user, name);
+      await screen.findByText(`Firewall "${name}" deleted`);
+    }
+    expect(await screen.findByText('Showing 1–5 of 5')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 1')).toBeInTheDocument();
+  });
+
+  it('returns to the same page after editing', async () => {
+    const { user } = renderApp('/firewalls?size=5&page=2');
+    await screen.findByText('Showing 6–10 of 10');
+    await user.click(screen.getByRole('link', { name: 'Edit DMZ-FW-01' }));
+    await user.selectOptions(await screen.findByLabelText(/^Status/), 'Active');
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    expect(await screen.findByText('Showing 6–10 of 10')).toBeInTheDocument();
+    expect(within(rowFor('DMZ-FW-01')).getByText('Active')).toBeInTheDocument();
+  });
+});
+
+describe('Search by Asset ID (Part 2)', () => {
+  it('finds exactly one firewall by its Asset ID', async () => {
+    const { user, service } = renderApp('/firewalls');
+    await screen.findByRole('table');
+    const getById = vi.spyOn(service, 'getById');
+
+    await user.type(screen.getByRole('searchbox', { name: 'Search firewalls' }), 'FW-0004');
+    expect(await screen.findByText('Found FW-0004')).toBeInTheDocument();
+    expect(bodyRows()).toHaveLength(1);
+    expect(rowFor('BRANCH-DMM-FW')).toBeDefined();
+    expect(getById).toHaveBeenCalledWith('FW-0004');
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument();
+  });
+
+  it('says so when no firewall has the Asset ID', async () => {
+    const { user } = renderApp('/firewalls');
+    await screen.findByRole('table');
+    await user.type(screen.getByRole('searchbox', { name: 'Search firewalls' }), 'FW-0999');
+    expect(await screen.findByRole('heading', { name: 'No firewall with this Asset ID' })).toBeInTheDocument();
+  });
+
+  it('keeps the search in the URL', async () => {
+    renderApp('/firewalls?q=FW-0002');
+    expect(await screen.findByText('Found FW-0002')).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: 'Search firewalls' })).toHaveValue('FW-0002');
+  });
+});
+
+describe('Server errors (Part 2)', () => {
+  it('shows an error with a retry on the inventory when the server is down', async () => {
+    const { user, service } = renderApp('/firewalls', { prepare: (s) => failOnce(s, 'getPage') });
+    expect(await screen.findByRole('heading', { name: 'Could not load data' })).toBeInTheDocument();
+    expect(service.getPage).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Showing 1–10 of 10')).toBeInTheDocument();
+  });
+
+  it('shows an error with a retry on the dashboard when the server is down', async () => {
+    const { user } = renderApp('/', { prepare: (s) => failOnce(s, 'getSummary') });
+    expect(await screen.findByRole('heading', { name: 'Could not load data' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('link', { name: /Total Firewalls\s*10/ })).toBeInTheDocument();
+  });
+
+  it('shows an error on the edit page when the firewall cannot be loaded', async () => {
+    renderApp('/firewalls/FW-0001/edit', { prepare: (s) => failOnce(s, 'getById') });
+    expect(await screen.findByRole('heading', { name: 'Could not load data' })).toBeInTheDocument();
+  });
+
+  it('shows a general error when saving fails for a reason other than validation', async () => {
+    const { user, service } = renderApp('/firewalls/new');
+    service.create = () => Promise.reject(new Error('Request failed (500)'));
+    await fillRequired(user);
+    await user.click(screen.getByRole('button', { name: 'Save Firewall' }));
+    expect(await screen.findByText('Something went wrong while saving. Please try again.')).toBeInTheDocument();
   });
 });

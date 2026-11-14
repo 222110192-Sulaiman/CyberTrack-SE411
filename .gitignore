@@ -27,3 +27,6 @@ Thumbs.db
 
 # Office lock files
 ~$*
+
+# Eclipse workspace metadata (created when the repo folder is opened as a workspace)
+.metadata/

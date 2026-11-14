@@ -4,7 +4,7 @@ import StatusBadge from '../ui/StatusBadge';
 import styles from './FirewallTable.module.css';
 
 /** Inventory table. Below 640px each row is restyled as a card (CSS only). */
-export default function FirewallTable({ firewalls, highlightId, onDelete }) {
+export default function FirewallTable({ firewalls, highlightId, onDelete, linkState }) {
   return (
     <div className={styles.wrapper}>
       <table className={styles.table}>
@@ -51,6 +51,7 @@ export default function FirewallTable({ firewalls, highlightId, onDelete }) {
               <td className={styles.actions}>
                 <Link
                   to={`/firewalls/${fw.id}/edit`}
+                  state={linkState}
                   className={`${styles.action} ${styles.edit}`}
                   aria-label={`Edit ${fw.name}`}
                   title="Edit"

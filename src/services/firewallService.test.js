@@ -141,4 +141,29 @@ describe('firewallService', () => {
     expect(await service.search('')).toHaveLength(seedFirewalls.length);
     expect(await service.search('zzzz')).toHaveLength(0);
   });
+  it('returns pages newest first with totals', async () => {
+    const first = await service.getPage({ page: 0, size: 4 });
+    expect(first.items.map((fw) => fw.id)).toEqual(['FW-0010', 'FW-0009', 'FW-0008', 'FW-0007']);
+    expect(first).toMatchObject({ page: 0, size: 4, totalElements: 10, totalPages: 3 });
+
+    const last = await service.getPage({ page: 2, size: 4 });
+    expect(last.items.map((fw) => fw.id)).toEqual(['FW-0002', 'FW-0001']);
+  });
+
+  it('filters pages by search text', async () => {
+    const page = await service.getPage({ page: 0, size: 10, search: 'jeddah' });
+    expect(page.totalElements).toBe(2);
+    expect(page.items.map((fw) => fw.name)).toEqual(['DC-CORE-FW-01', 'DMZ-FW-01']);
+  });
+
+  it('summarises the collection by status', async () => {
+    expect(await service.getSummary()).toEqual({
+      total: 10,
+      byStatus: { Active: 6, Inactive: 2, Maintenance: 1, Decommissioned: 1 },
+    });
+  });
+
+  it('accepts Asset IDs in any letter case', async () => {
+    expect((await service.getById('fw-0003')).name).toBe('DMZ-FW-01');
+  });
 });

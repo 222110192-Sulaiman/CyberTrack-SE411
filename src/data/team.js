@@ -9,5 +9,5 @@ export const teamMembers = [
 export const courseInfo = {
   course: 'SE411 – Software Engineering',
   semester: 'Fall 2026–27',
-  deliverable: 'Project Part 1 – React Frontend',
+  deliverable: 'Project Part 2 – Spring Boot REST API + React Frontend',
 };

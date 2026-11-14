@@ -1,11 +1,12 @@
 # CyberTrack — Firewall Asset Management System
 
-**SE411 Software Engineering · Fall 2026–27 · Project Part 1 (React frontend)**
+**SE411 Software Engineering · Fall 2026–27 · Project Part 2 (Spring Boot REST API + React frontend)**
 
 CyberTrack is a web application for keeping an inventory of an organisation's **firewall devices**. Users can register firewalls, browse and search the inventory, update device details and remove devices from one interface, with a dashboard summarising the inventory by operational status.
 
 ## Contents
 
+- [Part 2: Spring server and integration](#part-2-spring-server-and-integration)
 - [Part 1 scope and objectives](#part-1-scope-and-objectives)
 - [Features](#features)
 - [Technology stack](#technology-stack)
@@ -16,6 +17,50 @@ CyberTrack is a web application for keeping an inventory of an organisation's **
 - [Documentation](#documentation)
 - [Use of AI](#use-of-ai)
 - [Limitations](#limitations)
+
+## Part 2: Spring server and integration
+
+Part 2 adds a **Java Spring Boot server** ([`backend/`](backend)) and connects the React frontend to it. The firewall inventory is now stored in a database and every page reads and writes it through the REST API.
+
+| Part 2 requirement | How CyberTrack meets it |
+|---|---|
+| The Java application is a Spring server | Spring Boot 4.1.2 (Java 21): `@RestController`, service layer, Spring Data JDBC repository, H2 database |
+| Add an element | Add Firewall page → `POST /api/v1/firewalls` (201 Created) |
+| Search for an element by id | Type an Asset ID such as `FW-0007` in the inventory search → `GET /api/v1/firewalls/7`; the Edit page also loads by id |
+| Search for all elements with paginated results | Inventory page → `GET /api/v1/firewalls?page=&size=&search=`, with Previous / Next and rows per page |
+| Update an element | Edit page → `PUT /api/v1/firewalls/{id}` (204 No Content) |
+| Unit test suite for the whole backend (JUnit + Mockito) | 72 tests: service and controller unit tests with Mockito, validation tests, H2 integration tests |
+
+Also included: delete (`DELETE /api/v1/firewalls/{id}`), dashboard counts (`GET /api/v1/firewalls/summary`), server-side validation with field-level error messages, and uniqueness checks for name and IP address.
+
+The architecture and the full REST route table are in **[docs/API.md](docs/API.md)**.
+
+### Run the application
+
+Start the **backend first**, then the frontend.
+
+**1. Backend (Spring Boot, port 8080)**
+
+- **Eclipse:** *File → Import → Maven → Existing Maven Projects*, choose the `backend` folder, then right-click `CyberTrackApplication.java` → *Run As → Java Application*.
+- **Terminal:** `cd backend` then `./mvnw spring-boot:run` (Windows: `mvnw.cmd spring-boot:run`).
+
+Check it with http://localhost:8080/api/v1/firewalls.
+
+**2. Frontend (React, port 5173)**
+
+```bash
+npm install
+npm run dev
+```
+
+Open http://localhost:5173. The Vite development server forwards every `/api` request to `http://localhost:8080`, so no extra configuration is needed. If the backend is not running, the pages show *Could not load data* with a *Try again* button.
+
+### Run the tests
+
+| Part | Command | Eclipse |
+|---|---|---|
+| Backend (72 tests) | `cd backend` then `./mvnw test` | Right-click `src/test/java` → *Run As → JUnit Test* |
+| Frontend (153 tests) | `npm test` | — |
 
 ## Part 1 scope and objectives
 
@@ -29,7 +74,7 @@ Part 1 of the SE411 project asks for a **React frontend** that manages one kind 
 | Data as a collection of objects, **no database** | Firewalls are held in memory as JavaScript objects |
 | AI-generated requirements, design, code, documentation, tests and code review | See [Use of AI](#use-of-ai) and [Documentation](#documentation) |
 
-The backend will be written by hand in Part 2. Part 1 contains **no backend, database or API**.
+Part 1 contained no backend, database or API; Part 2 (above) adds them.
 
 ## Features
 
@@ -51,6 +96,9 @@ Firewall statuses: **Active**, **Inactive**, **Maintenance**, **Decommissioned**
 
 | Technology | Purpose |
 |---|---|
+| Java 21, [Spring Boot](https://spring.io/projects/spring-boot) 4.1.2 | REST server: Spring MVC, Spring Data JDBC, Bean Validation |
+| H2 | Embedded in-memory SQL database (created from `schema.sql` and `data.sql`) |
+| JUnit 5, Mockito, MockMvc, AssertJ | Backend tests |
 | [React](https://react.dev/) 19 (JavaScript, JSX) | User interface built from functional components and Hooks |
 | [React Router](https://reactrouter.com/) 7 | Page URLs and navigation without page reloads |
 | [Vite](https://vite.dev/) 8 | Development server and production build |
@@ -90,12 +138,24 @@ Then open the address shown in the terminal (by default http://localhost:5173).
 | `npm run build` | Create a production build in `dist/` |
 | `npm run preview` | Serve the production build locally |
 
-Latest results (17 October 2026): **113 / 113 tests passed**, ESLint 0 problems, production build succeeded, `npm audit` 0 vulnerabilities. See the [Testing Report](docs/TESTING_REPORT.md).
+Part 2 results (14 November 2026): **backend 72 / 72 and frontend 153 / 153 tests passed**, ESLint 0 problems, production build succeeded.
+
+Part 1 results (17 October 2026): **113 / 113 tests passed**, ESLint 0 problems, production build succeeded, `npm audit` 0 vulnerabilities. See the [Testing Report](docs/TESTING_REPORT.md).
 
 ## Project structure
 
 ```
 CyberTrack-SE411/
+├── backend/                 Spring Boot server (Maven project, open in Eclipse)
+│   ├── src/main/java/edu/psu/se411/cybertrack/
+│   │   ├── controller/      FirewallController: REST routes
+│   │   ├── service/         FirewallService (interface) + FirewallServiceImpl
+│   │   ├── repository/      FirewallRepository (Spring Data JDBC)
+│   │   ├── model/           Firewall, FirewallRequest, PageResponse, FirewallSummary, ApiError
+│   │   ├── exception/       Not found / duplicate exceptions, GlobalExceptionHandler
+│   │   └── config/          WebConfig (CORS)
+│   ├── src/main/resources/  application.properties, schema.sql, data.sql
+│   └── src/test/java/…      JUnit 5 + Mockito tests
 ├── docs/                    Project documentation (see below)
 ├── public/                  Static files (favicon)
 ├── src/
@@ -103,11 +163,11 @@ CyberTrack-SE411/
 │   │   ├── firewalls/       FirewallTable, FirewallForm (shared Add/Edit form)
 │   │   ├── layout/          AppLayout, Sidebar, Logo
 │   │   └── ui/              Button, Card, StatCard, StatusBadge, SearchBar, ConfirmDialog, …
-│   ├── context/             FirewallProvider (firewall list), ToastProvider (messages)
+│   ├── context/             FirewallProvider (data service), ToastProvider (messages)
 │   ├── data/                Sample firewalls, allowed values, team details
-│   ├── hooks/               useFirewalls, useToast
+│   ├── hooks/               useFirewallService, useToast
 │   ├── pages/               Dashboard, Inventory, Add, Edit, About, Not Found
-│   ├── services/            firewallService: in-memory data access (add, update, delete, search)
+│   ├── services/            apiFirewallService (REST client); firewallService (in-memory, used by tests)
 │   ├── styles/              Design tokens and global styles
 │   ├── test/                Test setup and helpers
 │   ├── utils/               Validation, search and formatting functions
@@ -135,6 +195,7 @@ The About page reads these details from [`src/data/team.js`](src/data/team.js).
 
 | Document | Contents |
 |---|---|
+| [REST API and Architecture (Part 2)](docs/API.md) | Architecture diagram, REST route table, request/response examples, validation rules, backend tests |
 | [Requirements Analysis](docs/REQUIREMENTS_ANALYSIS.md) | Specification requirements, functional and non-functional requirements, acceptance criteria, traceability |
 | [UI/UX Design](docs/UI_UX_DESIGN.md) | Design concept, colours and contrast, typography, page layouts, responsive behaviour |
 | [Architecture](docs/ARCHITECTURE.md) | Layered architecture, components, state, data flow, routing, Part 2 readiness |
@@ -157,6 +218,7 @@ As the specification requires, an AI tool was used throughout the project: **Cla
 | 6 | "Prompt 6: AI-Assisted Code Review and Complexity Assessment" | [Code Review](docs/CODE_REVIEW.md) |
 | 7 | "Prompt 7: Targeted Code Quality Improvements" | Three review findings fixed, with regression tests |
 | 8 | "Prompt 8: Final GitHub Repository Preparation" | This README, repository clean-up, requirements and design documents saved to `docs/` |
+| 9 | Part 2: build the Spring server and integrate it with the frontend | `backend/` Spring Boot server and tests, REST client and paginated inventory in the frontend, [API.md](docs/API.md) |
 
 Notes:
 
@@ -167,7 +229,8 @@ Notes:
 
 ## Limitations
 
-- **Data is stored only in memory.** Reloading the page, closing the tab or opening a new tab resets the inventory to the 10 sample firewalls. Moving between pages with the menu keeps the data. This is intentional for Part 1, which requires a collection of objects instead of a database.
+- **The H2 database runs in memory.** Data survives page reloads but is reset to the 10 sample firewalls each time the Spring server restarts. Switching to MySQL needs only the driver dependency and the connection settings in `application.properties` (Chapter 6).
+- Text search returns results newest first; the `sort` parameter applies to the unfiltered list.
 - Single user; no login.
 - IPv4 addresses only.
 - When deployed to a static web host, the host must serve `index.html` for every route so that links such as `/about` work after a refresh.

@@ -1,22 +1,11 @@
 import { seedFirewalls } from '../data/seedFirewalls';
 import { normalizeFirewall, validateFirewall } from '../utils/validation';
 import { filterFirewalls } from '../utils/search';
-import { EMPTY_FIREWALL } from '../data/constants';
+import { EMPTY_FIREWALL, STATUSES } from '../data/constants';
+import { formatAssetId, parseAssetId } from '../utils/assetId';
+import { NotFoundError, ValidationError } from './errors';
 
-export class ValidationError extends Error {
-  constructor(errors) {
-    super('Firewall data is invalid');
-    this.name = 'ValidationError';
-    this.errors = errors;
-  }
-}
-
-export class NotFoundError extends Error {
-  constructor(id) {
-    super(`Firewall ${id} was not found`);
-    this.name = 'NotFoundError';
-  }
-}
+export { NotFoundError, ValidationError };
 
 const EDITABLE_FIELDS = Object.keys(EMPTY_FIREWALL);
 
@@ -31,13 +20,23 @@ function highestIdNumber(firewalls) {
   return firewalls.reduce((acc, fw) => Math.max(acc, Number(fw.id.slice(3)) || 0), 0);
 }
 
-const formatId = (n) => `FW-${String(n).padStart(4, '0')}`;
+const formatId = formatAssetId;
+
+/** Accepts "FW-0007" in any letter case. */
+const normalizeId = (id) => {
+  const n = parseAssetId(id);
+  return n === null ? id : formatAssetId(n);
+};
+
+/** Newest first, matching the order the Spring API returns. */
+const newestFirst = (a, b) => Number(b.id.slice(3)) - Number(a.id.slice(3));
 
 /**
- * Data-access layer for firewall assets.
+ * In-memory data-access layer for firewall assets.
  *
- * Part 1 keeps the collection in memory. Every method returns a Promise so that
- * Part 2 can replace the implementation with HTTP calls without changing the UI.
+ * Part 1 used this as the application's data store. In Part 2 the app talks to the
+ * Spring REST API (apiFirewallService.js); this implementation has the same methods and
+ * is used by the frontend tests as a fast, isolated stand-in for the backend.
  * Records are copied on the way in and out so callers can never mutate the store.
  */
 export function createFirewallService(initialData = seedFirewalls) {
@@ -50,7 +49,26 @@ export function createFirewallService(initialData = seedFirewalls) {
       return firewalls.map((fw) => ({ ...fw }));
     },
 
-    async getById(id) {
+    async getPage({ page = 0, size = 10, search = '' } = {}) {
+      const matching = filterFirewalls(firewalls, search).sort(newestFirst);
+      const start = page * size;
+      return {
+        items: matching.slice(start, start + size).map((fw) => ({ ...fw })),
+        page,
+        size,
+        totalElements: matching.length,
+        totalPages: Math.ceil(matching.length / size),
+      };
+    },
+
+    async getSummary() {
+      const byStatus = Object.fromEntries(STATUSES.map((s) => [s, 0]));
+      for (const fw of firewalls) byStatus[fw.status] = (byStatus[fw.status] ?? 0) + 1;
+      return { total: firewalls.length, byStatus };
+    },
+
+    async getById(rawId) {
+      const id = normalizeId(rawId);
       const found = firewalls.find((fw) => fw.id === id);
       return found ? { ...found } : null;
     },
@@ -67,7 +85,8 @@ export function createFirewallService(initialData = seedFirewalls) {
       return { ...created };
     },
 
-    async update(id, input) {
+    async update(rawId, input) {
+      const id = normalizeId(rawId);
       const existing = firewalls.find((fw) => fw.id === id);
       if (!existing) throw new NotFoundError(id);
 
@@ -80,7 +99,8 @@ export function createFirewallService(initialData = seedFirewalls) {
       return { ...updated };
     },
 
-    async remove(id) {
+    async remove(rawId) {
+      const id = normalizeId(rawId);
       const before = firewalls.length;
       firewalls = firewalls.filter((fw) => fw.id !== id);
       return firewalls.length < before;

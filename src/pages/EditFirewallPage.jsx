@@ -1,6 +1,7 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ShieldQuestion } from 'lucide-react';
-import { useFirewalls } from '../hooks/useFirewalls';
+import { useFirewallService } from '../hooks/useFirewallService';
 import { useToast } from '../hooks/useToast';
 import { FIREWALL_FIELDS } from '../data/constants';
 import { validateFirewall } from '../utils/validation';
@@ -10,6 +11,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import EmptyState from '../components/ui/EmptyState';
 import LoadingState from '../components/ui/LoadingState';
+import ServerErrorState from '../components/ui/ServerErrorState';
 import FirewallForm from '../components/firewalls/FirewallForm';
 import styles from './EditFirewallPage.module.css';
 
@@ -19,22 +21,53 @@ function toFormValues(firewall) {
 
 export default function EditFirewallPage() {
   const { id } = useParams();
-  const { firewalls, status, updateFirewall } = useFirewalls();
+  const service = useFirewallService();
   const { notify } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  // The inventory passes the page it came from, so Save and Cancel return to the same page.
+  const returnTo = location.state?.returnTo ?? '/firewalls';
 
-  const firewall = firewalls.find((fw) => fw.id === id);
+  const [firewall, setFirewall] = useState(null);
+  const [status, setStatus] = useState('loading');
+  const [attempt, setAttempt] = useState(0);
 
-  if (status === 'loading') {
+  useEffect(() => {
+    let active = true;
+    service.getById(id).then(
+      (data) => {
+        if (!active) return;
+        setFirewall(data);
+        setStatus(data ? 'ready' : 'missing');
+      },
+      () => active && setStatus('error'),
+    );
+    return () => {
+      active = false;
+    };
+  }, [service, id, attempt]);
+
+  if (status === 'loading' || status === 'error') {
     return (
       <>
         <PageHeader title="Edit Firewall" />
-        <LoadingState />
+        {status === 'loading' ? (
+          <LoadingState label="Loading firewall…" />
+        ) : (
+          <Card>
+            <ServerErrorState
+              onRetry={() => {
+                setStatus('loading');
+                setAttempt((n) => n + 1);
+              }}
+            />
+          </Card>
+        )}
       </>
     );
   }
 
-  if (!firewall) {
+  if (status === 'missing') {
     return (
       <>
         <PageHeader title="Edit Firewall" />
@@ -55,9 +88,9 @@ export default function EditFirewallPage() {
   }
 
   async function handleSubmit(values) {
-    const updated = await updateFirewall(id, values);
+    const updated = await service.update(firewall.id, values);
     notify({ type: 'success', message: `Firewall "${updated.name}" updated` });
-    navigate('/firewalls', { state: { highlightId: id } });
+    navigate(returnTo, { state: { highlightId: updated.id } });
   }
 
   return (
@@ -77,9 +110,9 @@ export default function EditFirewallPage() {
           mode="edit"
           assetId={firewall.id}
           initialValues={toFormValues(firewall)}
-          validate={(values) => validateFirewall(values, firewalls, id)}
+          validate={(values) => validateFirewall(values)}
           onSubmit={handleSubmit}
-          onCancel={() => navigate('/firewalls')}
+          onCancel={() => navigate(returnTo)}
         />
       </Card>
     </>
